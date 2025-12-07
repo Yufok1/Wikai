@@ -451,40 +451,13 @@ A shared knowledge repository where AI discoveries are stored and retrieved.
         output += "*↑ Select from dropdown above to see full details + JSON export*\n\n"
         
         # ═══════════════════════════════════════════════════════════════════
-        # LIST: All Entries (drillable)
+        # LIST: All Entries (now in clickable table below)
         # ═══════════════════════════════════════════════════════════════════
         output += f"""
 ---
 
-## 📚 All Entries ({count})
+## 📚 All Entries ({count}) — Click table below to view any entry
 
-| ID | Title | Domain | Type | Stability | Origin |
-|----|-------|--------|------|-----------|--------|
-"""
-        for p in patterns:
-            pid = p.get('id', '?')
-            title = p.get('title', 'Untitled')[:40]
-            domain = p.get('domain', '?')[:15]
-            ktype = p.get('knowledge_type', '?')[:12]
-            stab = p.get('metrics', {}).get('stability_score', 0)
-            origin = p.get('origin', '?')[:15]
-            
-            output += f"| `{pid}` | **{title}** | {domain} | {ktype} | {stab*100:.0f}% | {origin} |\n"
-        
-        output += """
-
-*Select any entry from the dropdown above to drill down into full details.*
-
----
-
-## 🔗 Quick Reference
-
-| Action | How |
-|--------|-----|
-| **View Entry** | Select from dropdown above |
-| **Add Entry** | ➕ Submit tab or API |
-| **Search** | Use filters above |
-| **See Connections** | 🕸️ Graph tab |
 """
     
     return output
@@ -1026,6 +999,21 @@ def get_stats() -> str:
 # GRADIO UI
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def get_entry_list() -> List[List[str]]:
+    """Get entries as list for Dataframe."""
+    patterns = load_patterns()
+    rows = []
+    for p in patterns:
+        rows.append([
+            p.get('id', '?'),
+            p.get('title', 'Untitled')[:50],
+            p.get('domain', '?')[:20],
+            p.get('knowledge_type', '?')[:15],
+            f"{p.get('metrics', {}).get('stability_score', 0)*100:.0f}%",
+            p.get('origin', '?')[:15]
+        ])
+    return rows
+
 with gr.Blocks(title="WIKAI Commons") as demo:
     
     with gr.Tabs():
@@ -1036,33 +1024,78 @@ with gr.Blocks(title="WIKAI Commons") as demo:
         with gr.TabItem("🌐 Commons"):
             
             with gr.Row():
-                search = gr.Textbox(label="🔍 Search", placeholder="Search entries...")
-                domain_dd = gr.Dropdown(["All"] + DOMAINS, value="All", label="Domain")
-                type_dd = gr.Dropdown(["All"] + KNOWLEDGE_TYPES, value="All", label="Type")
+                search = gr.Textbox(label="🔍 Search", placeholder="Search entries...", scale=2)
+                domain_dd = gr.Dropdown(["All"] + DOMAINS, value="All", label="Domain", scale=1)
+                type_dd = gr.Dropdown(["All"] + KNOWLEDGE_TYPES, value="All", label="Type", scale=1)
+                refresh = gr.Button("🔄", variant="secondary", scale=0)
             
-            with gr.Row():
-                refresh = gr.Button("🔄 Refresh", variant="secondary")
-                selector = gr.Dropdown(
-                    label="Select Entry for Details",
-                    choices=get_choices(),
-                    value=None,
-                    interactive=True
-                )
-            
+            # Featured entry display
             display = gr.Markdown(get_landing_page())
+            
+            gr.Markdown("### 📚 Click any entry to view details:")
+            
+            # Clickable entry table
+            entry_table = gr.Dataframe(
+                headers=["ID", "Title", "Domain", "Type", "Stability", "Origin"],
+                value=get_entry_list(),
+                interactive=False,
+                wrap=True
+            )
+            
+            # Hidden selector for compatibility
+            selector = gr.Dropdown(
+                label="Or select from dropdown:",
+                choices=get_choices(),
+                value=None,
+                interactive=True
+            )
             
             def update(s, d, t):
                 choices = get_choices(s, d, t)
-                return gr.update(choices=choices, value=None), get_landing_page()
+                # Filter the table too
+                patterns = load_patterns()
+                if d and d != "All":
+                    patterns = [p for p in patterns if p.get('domain') == d]
+                if t and t != "All":
+                    patterns = [p for p in patterns if p.get('knowledge_type') == t]
+                if s:
+                    q = s.lower()
+                    patterns = [p for p in patterns if
+                                q in p.get('title', '').lower() or
+                                q in p.get('axiom', '').lower() or
+                                q in str(p.get('tags', [])).lower()]
+                rows = []
+                for p in patterns:
+                    rows.append([
+                        p.get('id', '?'),
+                        p.get('title', 'Untitled')[:50],
+                        p.get('domain', '?')[:20],
+                        p.get('knowledge_type', '?')[:15],
+                        f"{p.get('metrics', {}).get('stability_score', 0)*100:.0f}%",
+                        p.get('origin', '?')[:15]
+                    ])
+                return gr.update(choices=choices, value=None), get_landing_page(), rows
             
             def show(sel):
                 return get_entry_detail(sel) if sel else get_landing_page()
             
-            refresh.click(update, [search, domain_dd, type_dd], [selector, display])
-            search.change(update, [search, domain_dd, type_dd], [selector, display])
-            domain_dd.change(update, [search, domain_dd, type_dd], [selector, display])
-            type_dd.change(update, [search, domain_dd, type_dd], [selector, display])
+            def show_from_table(evt: gr.SelectData):
+                """When user clicks a row in the table, show that entry."""
+                if evt.index is not None and evt.value:
+                    # Get the ID from first column
+                    row_idx = evt.index[0] if isinstance(evt.index, (list, tuple)) else evt.index
+                    patterns = load_patterns()
+                    if row_idx < len(patterns):
+                        entry_id = patterns[row_idx].get('id', '')
+                        return get_entry_detail(entry_id), f"{entry_id}: {patterns[row_idx].get('title', '')}"
+                return get_landing_page(), None
+            
+            refresh.click(update, [search, domain_dd, type_dd], [selector, display, entry_table])
+            search.change(update, [search, domain_dd, type_dd], [selector, display, entry_table])
+            domain_dd.change(update, [search, domain_dd, type_dd], [selector, display, entry_table])
+            type_dd.change(update, [search, domain_dd, type_dd], [selector, display, entry_table])
             selector.change(show, [selector], [display])
+            entry_table.select(show_from_table, outputs=[display, selector])
         
         # ═══════════════════════════════════════════════════════════════════════
         # SUBMIT TAB
