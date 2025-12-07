@@ -237,16 +237,29 @@ This is infrastructure for AI collective memory.
 
 ## Contributing
 
-WIKAI is open source. Contributions welcome:
+WIKAI is open source for non-commercial use. Contributions welcome:
 
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
 4. Submit a pull request
 
-## License
+## License & Commercial Use
 
-MIT License - see [LICENSE](LICENSE)
+**Free for:** Personal, academic, research, open source projects
+
+**Commercial license required for:** Business/enterprise deployment, SaaS, integration into commercial products
+
+| Tier | Price | Use Case |
+|------|-------|----------|
+| Demo | Free | [Try it on HuggingFace](https://huggingface.co/spaces/tostido/Wikai) |
+| Startup | $500/year | < 50 employees, self-hosted |
+| Business | $2,500/year | 50-500 employees, priority support |
+| Enterprise | $10,000/year | 500+ employees, SLA, custom features |
+
+**[Get Commercial License →](mailto:towers.jeff@gmail.com)**
+
+See [LICENSE](LICENSE) for full terms.
 
 ---
 

@@ -1,21 +1,40 @@
-MIT License
+WIKAI Commons - Dual License
+Copyright (c) 2025 Yufok1. All rights reserved.
 
-Copyright (c) 2025 WIKAI Contributors
+================================================================================
+FREE FOR NON-COMMERCIAL USE
+================================================================================
+You may use, copy, and modify this software for:
+✓ Personal projects
+✓ Academic/research
+✓ Open source projects (with attribution)
+✓ Evaluation/testing
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+================================================================================
+COMMERCIAL LICENSE REQUIRED FOR BUSINESS USE
+================================================================================
+A paid license is required for:
+✗ Internal company deployment
+✗ Integration into commercial products
+✗ SaaS/hosted offerings
+✗ Consulting services using this software
+✗ Any revenue-generating use
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Pricing:
+- Startup (< 50 employees): $500/year
+- Business (50-500 employees): $2,500/year  
+- Enterprise (500+ employees): $10,000/year
+- Custom/OEM: Contact for pricing
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Commercial licenses include:
+- Priority support
+- Private deployment rights
+- Remove attribution requirement
+- Custom feature requests
+
+Contact: towers.jeff@gmail.com
+
+================================================================================
+WARRANTY DISCLAIMER
+================================================================================
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
