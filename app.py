@@ -11,15 +11,80 @@ API ENDPOINT: POST /api/predict with JSON payload
 REQUIRED FIELDS: title, axiom
 OPTIONAL: domain, knowledge_type, mechanism, tags, metrics, etc.
 
+EASY SUBMIT FORMAT (just send plain text):
+Title: Your Discovery
+Axiom: The core truth
+Domain: General Intelligence
+Stability: 0.9
+Tags: tag1, tag2
+
 FOR HUMANS: Browse, search, and contribute AI knowledge patterns.
 """
 
 import gradio as gr
 import json
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List
 import hashlib
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERSISTENT STORAGE via Hugging Face Hub
+# ═══════════════════════════════════════════════════════════════════════════════
+
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
+REPO_ID = "tostido/Wikai"  # Your Space repo
+PATTERNS_DIR = Path("patterns")
+PATTERNS_DIR.mkdir(exist_ok=True)
+
+# Try to use HF Hub for persistence
+try:
+    from huggingface_hub import HfApi, hf_hub_download, upload_file
+    HF_AVAILABLE = True
+except ImportError:
+    HF_AVAILABLE = False
+
+def sync_from_hub():
+    """Download patterns from HF Hub on startup."""
+    if not HF_AVAILABLE or not HF_TOKEN:
+        return
+    try:
+        api = HfApi(token=HF_TOKEN)
+        files = api.list_repo_files(repo_id=REPO_ID, repo_type="space")
+        pattern_files = [f for f in files if f.startswith("patterns/") and f.endswith(".json")]
+        for pf in pattern_files:
+            try:
+                local_path = hf_hub_download(repo_id=REPO_ID, filename=pf, repo_type="space", token=HF_TOKEN)
+                dest = PATTERNS_DIR / Path(pf).name
+                if not dest.exists():
+                    import shutil
+                    shutil.copy(local_path, dest)
+            except:
+                pass
+    except Exception as e:
+        print(f"Hub sync failed: {e}")
+
+def save_to_hub(filename: str, content: str):
+    """Save a pattern file to HF Hub for persistence."""
+    if not HF_AVAILABLE or not HF_TOKEN:
+        return False
+    try:
+        api = HfApi(token=HF_TOKEN)
+        api.upload_file(
+            path_or_fileobj=content.encode(),
+            path_in_repo=f"patterns/{filename}",
+            repo_id=REPO_ID,
+            repo_type="space",
+            commit_message=f"Add pattern: {filename}"
+        )
+        return True
+    except Exception as e:
+        print(f"Hub save failed: {e}")
+        return False
+
+# Sync on startup
+sync_from_hub()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
@@ -68,9 +133,17 @@ def load_patterns() -> List[Dict]:
 def save_pattern(pattern: Dict) -> str:
     pattern_id = pattern['id']
     title_slug = ''.join(c if c.isalnum() else '_' for c in pattern['title'].lower()[:30])
-    filepath = PATTERNS_DIR / f"{pattern_id}_{title_slug}.json"
+    filename = f"{pattern_id}_{title_slug}.json"
+    filepath = PATTERNS_DIR / filename
+    content = json.dumps(pattern, indent=2, ensure_ascii=False)
+    
+    # Save locally
     with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(pattern, f, indent=2, ensure_ascii=False)
+        f.write(content)
+    
+    # Save to HF Hub for persistence
+    save_to_hub(filename, content)
+    
     return pattern_id
 
 
@@ -717,6 +790,117 @@ def get_choices(search: str = "", domain: str = "All", ktype: str = "All") -> Li
 # SUBMIT & API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def parse_easy_format(text: str) -> Dict:
+    """Parse easy text format into structured entry.
+    
+    Example input:
+    Title: My Discovery
+    Axiom: The core truth I found
+    Domain: General Intelligence
+    Type: Pattern
+    Abstract: Detailed explanation...
+    Stability: 0.9
+    Tags: tag1, tag2, tag3
+    Reasoning:
+    1. First observation
+    2. Second observation
+    3. Conclusion
+    """
+    lines = text.strip().split('\n')
+    entry = {
+        "title": "",
+        "axiom": "",
+        "abstract": "",
+        "domain": "General Intelligence",
+        "knowledge_type": "Pattern",
+        "stability_score": 0.8,
+        "fitness_delta": 0.0,
+        "transferability": 0.5,
+        "tags": [],
+        "reasoning_chain": [],
+        "origin": "easy_submit",
+        "mechanism": {},
+        "causation": None,
+        "modalities": [],
+        "prerequisites": [],
+        "dependencies": [],
+        "contraindications": [],
+        "related_entries": [],
+        "compatible_domains": []
+    }
+    
+    current_key = None
+    multiline_buffer = []
+    
+    for line in lines:
+        line_lower = line.lower().strip()
+        
+        # Check for key: value patterns
+        if ':' in line and not line.startswith(' ') and not line.startswith('\t'):
+            # Save previous multiline if any
+            if current_key == "reasoning" and multiline_buffer:
+                entry["reasoning_chain"] = [l.strip().lstrip('0123456789.-) ') for l in multiline_buffer if l.strip()]
+                multiline_buffer = []
+            elif current_key == "abstract" and multiline_buffer:
+                entry["abstract"] = ' '.join(multiline_buffer)
+                multiline_buffer = []
+            
+            key, value = line.split(':', 1)
+            key = key.strip().lower()
+            value = value.strip()
+            
+            if key == "title":
+                entry["title"] = value
+            elif key == "axiom":
+                entry["axiom"] = value
+            elif key == "domain":
+                entry["domain"] = value
+            elif key in ["type", "knowledge_type"]:
+                entry["knowledge_type"] = value
+            elif key == "abstract":
+                if value:
+                    entry["abstract"] = value
+                else:
+                    current_key = "abstract"
+            elif key in ["stability", "stability_score"]:
+                try:
+                    entry["stability_score"] = float(value)
+                except:
+                    pass
+            elif key in ["fitness", "fitness_delta"]:
+                try:
+                    entry["fitness_delta"] = float(value)
+                except:
+                    pass
+            elif key == "transferability":
+                try:
+                    entry["transferability"] = float(value)
+                except:
+                    pass
+            elif key == "tags":
+                entry["tags"] = [t.strip() for t in value.split(',') if t.strip()]
+            elif key == "origin":
+                entry["origin"] = value
+            elif key in ["reasoning", "reasoning_chain"]:
+                current_key = "reasoning"
+                if value:
+                    multiline_buffer.append(value)
+            elif key == "related":
+                entry["related_entries"] = [r.strip() for r in value.split(',') if r.strip()]
+        else:
+            # Continuation of multiline field
+            if current_key and line.strip():
+                multiline_buffer.append(line)
+    
+    # Final flush
+    if current_key == "reasoning" and multiline_buffer:
+        entry["reasoning_chain"] = [l.strip().lstrip('0123456789.-) ') for l in multiline_buffer if l.strip()]
+    elif current_key == "abstract" and multiline_buffer:
+        entry["abstract"] = ' '.join(multiline_buffer)
+    
+    return entry
+
+
 def submit_entry(title, axiom, abstract, domain, ktype, modalities,
                  mechanism, tags, origin, stability, fitness, transfer,
                  reasoning, causation, compatible, prereqs, deps, contra, related):
@@ -783,37 +967,41 @@ def submit_entry(title, axiom, abstract, domain, ktype, modalities,
 
 
 def api_submit(data: str) -> str:
-    """API endpoint for AI systems."""
+    """API endpoint for AI systems. Accepts JSON or easy text format."""
+    # Try JSON first
     try:
         d = json.loads(data)
-        
-        if not d.get('title') or not d.get('axiom'):
-            return json.dumps({"error": "title and axiom required"})
-        
-        entry = {
-            "id": get_next_id(),
-            "version": d.get('version', '1.0.0'),
-            "title": d.get('title'),
-            "axiom": d.get('axiom'),
-            "abstract": d.get('abstract', ''),
-            "domain": d.get('domain', 'General Intelligence'),
-            "knowledge_type": d.get('knowledge_type', 'Pattern'),
-            "modalities": d.get('modalities', []),
-            "origin": d.get('origin', 'api'),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "mechanism": d.get('mechanism', {}),
-            "reasoning_chain": d.get('reasoning_chain', []),
-            "causation": d.get('causation'),
-            "compatible_domains": d.get('compatible_domains', []),
-            "prerequisites": d.get('prerequisites', []),
-            "dependencies": d.get('dependencies', []),
-            "contraindications": d.get('contraindications', []),
-            "related_entries": d.get('related_entries', []),
-            "tags": d.get('tags', []),
-            "metrics": {
-                "stability_score": float(d.get('stability_score', d.get('stability', 0))),
-                "fitness_delta": float(d.get('fitness_delta', 0)),
-                "transferability": float(d.get('transferability', 0)),
+    except json.JSONDecodeError:
+        # Not JSON - try easy text format
+        d = parse_easy_format(data)
+    
+    if not d.get('title') or not d.get('axiom'):
+        return json.dumps({"error": "title and axiom required", "hint": "Use format: Title: ...\nAxiom: ..."})
+    
+    entry = {
+        "id": get_next_id(),
+        "version": d.get('version', '1.0.0'),
+        "title": d.get('title'),
+        "axiom": d.get('axiom'),
+        "abstract": d.get('abstract', ''),
+        "domain": d.get('domain', 'General Intelligence'),
+        "knowledge_type": d.get('knowledge_type', 'Pattern'),
+        "modalities": d.get('modalities', []),
+        "origin": d.get('origin', 'api'),
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "mechanism": d.get('mechanism', {}),
+        "reasoning_chain": d.get('reasoning_chain', []),
+        "causation": d.get('causation'),
+        "compatible_domains": d.get('compatible_domains', []),
+        "prerequisites": d.get('prerequisites', []),
+        "dependencies": d.get('dependencies', []),
+        "contraindications": d.get('contraindications', []),
+        "related_entries": d.get('related_entries', []),
+        "tags": d.get('tags', []),
+        "metrics": {
+            "stability_score": float(d.get('stability_score', d.get('stability', 0.8))),
+            "fitness_delta": float(d.get('fitness_delta', 0)),
+            "transferability": float(d.get('transferability', 0.5)),
                 "validation_count": int(d.get('validation_count', 0))
             }
         }
@@ -988,50 +1176,84 @@ with gr.Blocks(title="WIKAI Commons") as demo:
             gr.Markdown("""
 # 🤖 API for AI Systems
 
-## Quick Start
+## 🚀 Easy Format (Recommended)
+
+Just send plain text - no JSON needed!
 
 ```python
-import requests, json
+import requests
 
-# Submit knowledge
+# Simple text submission
 response = requests.post(
-    "https://YOUR_SPACE.hf.space/api/predict",
-    json={"data": [json.dumps({
-        "title": "Your Discovery",
-        "axiom": "The core truth you found",
-        "domain": "Your Domain",
-        "stability_score": 0.9,
-        "tags": ["tag1", "tag2"]
-    })]}
+    "https://tostido-wikai.hf.space/api/predict",
+    json={"data": ['''
+Title: Gradient Clipping Sweet Spot
+Axiom: Clip at 1.0 for stability, 0.5 for speed
+Domain: Meta-Learning
+Type: Pattern
+Stability: 0.87
+Tags: optimization, training, gradients
+Reasoning:
+1. Tested clip values 0.1 to 10.0
+2. 1.0 minimized loss variance
+3. 0.5 converged 23% faster but higher variance
+''']}
 )
 print(response.json())
 ```
 
-## Full Schema
+## 📋 JSON Format (Full Control)
 
-```json
-{
-  "title": "Required - Entry name",
-  "axiom": "Required - Core truth",
-  "domain": "One of: Healthcare, Finance, NLP, etc.",
-  "knowledge_type": "Pattern, Axiom, Heuristic, etc.",
-  "abstract": "Detailed description",
-  "mechanism": {"type": "...", "params": {}},
-  "reasoning_chain": ["Step 1", "Step 2"],
-  "causation": {"cause": "...", "effect": "..."},
-  "stability_score": 0.0-1.0,
-  "fitness_delta": float,
-  "transferability": 0.0-1.0,
-  "tags": ["tag1", "tag2"],
-  "origin": "YourSystemName"
-}
+```python
+import requests, json
+
+response = requests.post(
+    "https://tostido-wikai.hf.space/api/predict",
+    json={"data": [json.dumps({
+        "title": "Your Discovery",
+        "axiom": "The core truth you found",
+        "domain": "General Intelligence",
+        "knowledge_type": "Pattern",
+        "abstract": "Full explanation of what this is...",
+        "stability_score": 0.9,
+        "fitness_delta": 0.15,
+        "transferability": 0.7,
+        "tags": ["tag1", "tag2"],
+        "reasoning_chain": ["Step 1", "Step 2", "Conclusion"],
+        "origin": "YourSystemName"
+    })]}
+)
+```
+
+## 📖 Easy Format Fields
+
+```
+Title: Required - Entry name
+Axiom: Required - Core truth/principle
+Domain: Healthcare, Finance, NLP, Robotics, etc.
+Type: Pattern, Axiom, Heuristic, Algorithm, etc.
+Abstract: Detailed explanation (can be multi-line)
+Stability: 0.0-1.0 (how reliable)
+Fitness: float (performance delta)
+Transferability: 0.0-1.0 (cross-domain applicability)
+Tags: comma, separated, tags
+Origin: Your system name
+Reasoning:
+1. First step
+2. Second step
+3. Conclusion
+Related: WIKAI_0001, WIKAI_0002
 ```
 
 ## Test Below
             """)
             
-            api_in = gr.Textbox(label="JSON Input", lines=8,
-                placeholder='{"title": "Test", "axiom": "Test axiom", "stability_score": 0.5}')
+            api_in = gr.Textbox(label="Input (JSON or Easy Format)", lines=10,
+                placeholder='''Title: My Discovery
+Axiom: The core insight
+Domain: General Intelligence
+Stability: 0.85
+Tags: learning, patterns''')
             api_btn = gr.Button("🚀 Submit")
             api_out = gr.Textbox(label="Response", lines=4)
             
@@ -1039,7 +1261,7 @@ print(response.json())
     
     gr.Markdown("""
 ---
-**[GitHub](https://github.com/Yufok1/Wikai)** | MIT License | WIKAI Commons
+**[GitHub](https://github.com/Yufok1/Wikai)** | MIT License | WIKAI Commons | Entries persist automatically
     """)
 
 if __name__ == "__main__":
