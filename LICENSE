@@ -1,4 +1,4 @@
-WIKAI Commons - Dual License
+WIKAI - The AI Pattern Library
 Copyright (c) 2025 Yufok1. All rights reserved.
 
 ================================================================================
@@ -9,6 +9,7 @@ You may use, copy, and modify this software for:
 ✓ Academic/research
 ✓ Open source projects (with attribution)
 ✓ Evaluation/testing
+✓ Trying the hosted demo at huggingface.co/spaces/tostido/Wikai
 
 ================================================================================
 COMMERCIAL LICENSE REQUIRED FOR BUSINESS USE
@@ -20,17 +21,30 @@ A paid license is required for:
 ✗ Consulting services using this software
 ✗ Any revenue-generating use
 
-Pricing:
-- Startup (< 50 employees): $500/year
-- Business (50-500 employees): $2,500/year  
-- Enterprise (500+ employees): $10,000/year
-- Custom/OEM: Contact for pricing
+Pricing (per user/month, billed annually):
 
-Commercial licenses include:
-- Priority support
-- Private deployment rights
-- Remove attribution requirement
-- Custom feature requests
+  TEAM        $50/user/month
+              - Self-hosted deployment
+              - Up to 50,000 patterns
+              - Basic integrations (LangChain, MLflow)
+              - Community support
+
+  PROFESSIONAL  $100/user/month  
+              - Everything in Team
+              - SSO/SAML authentication
+              - Audit logs
+              - Unlimited patterns
+              - Email support (48hr response)
+
+  ENTERPRISE  $200/user/month
+              - Everything in Professional
+              - Air-gapped deployment
+              - SOC 2 compliance documentation
+              - Role-based access control
+              - Dedicated support + SLA
+              - Custom integrations
+
+Volume discounts available for 50+ users.
 
 Contact: towers.jeff@gmail.com
 

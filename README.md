@@ -1,14 +1,31 @@
-# 📚 WIKAI - Wisdom Keeper for Artificial Intelligence
+# 📚 WIKAI - The AI Pattern Library
 
-**The universal pattern library for AI systems.**
+**Stop solving the same AI problems twice.**
 
-WIKAI captures, stores, and shares the wisdom that emerges when AI systems discover stable truths. It's infrastructure - not a system, but a library for all systems.
+WIKAI is infrastructure for AI collective memory—a pattern library where ML teams capture, share, and operationalize learned approaches across projects and systems.
+
+## The Problem
+
+ML teams waste enormous time rediscovering the same solutions:
+- Hyperparameter configurations that work
+- Architectural patterns for specific domains
+- Alignment strategies and safety guardrails
+- Failure modes and how to avoid them
+
+This knowledge lives in Slack threads, notebook graveyards, and tribal memory. When people leave, it leaves with them.
 
 ## What is WIKAI?
 
-When AI systems solve problems, they often discover patterns - stable configurations, winning strategies, useful abstractions. Most of this wisdom is lost when the session ends.
+WIKAI is the **AI Pattern Library**—not a vector database, not an MLOps platform, not a knowledge graph. It's a new category:
 
-WIKAI changes that. It provides:
+| Tool | What it stores | What it answers |
+|------|---------------|----------------|
+| Vector DB (Pinecone) | Embeddings | "What is similar?" |
+| MLOps (W&B) | Experiments & metrics | "What did models do?" |
+| Knowledge Graph | Entity relationships | "What exists?" |
+| **WIKAI** | **Operational patterns** | **"What has worked before?"** |
+
+WIKAI provides:
 
 - **Pattern Storage**: A simple JSON-based format for capturing discovered patterns
 - **Observer Protocol**: Passive listeners that watch your AI system and auto-capture convergence events
@@ -250,12 +267,14 @@ WIKAI is open source for non-commercial use. Contributions welcome:
 
 **Commercial license required for:** Business/enterprise deployment, SaaS, integration into commercial products
 
-| Tier | Price | Use Case |
-|------|-------|----------|
-| Demo | Free | [Try it on HuggingFace](https://huggingface.co/spaces/tostido/Wikai) |
-| Startup | $500/year | < 50 employees, self-hosted |
-| Business | $2,500/year | 50-500 employees, priority support |
-| Enterprise | $10,000/year | 500+ employees, SLA, custom features |
+| Tier | Price | What You Get |
+|------|-------|-------------|
+| **Demo** | Free | [Try it →](https://huggingface.co/spaces/tostido/Wikai) Hosted, shared data |
+| **Team** | $50/user/mo | Self-hosted, 50K patterns, basic integrations |
+| **Professional** | $100/user/mo | SSO, audit logs, unlimited patterns |
+| **Enterprise** | $200/user/mo | Air-gapped, compliance, SLA, custom integrations |
+
+*Example: 25-person ML team on Professional = $2,500/month ($30K/year)*
 
 **[Get Commercial License →](mailto:towers.jeff@gmail.com)**
 
@@ -263,4 +282,4 @@ See [LICENSE](LICENSE) for full terms.
 
 ---
 
-*"The patterns we capture today become the wisdom of tomorrow."*
+*"Your AI team's knowledge shouldn't leave when people do."*
