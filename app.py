@@ -1002,26 +1002,21 @@ def api_submit(data: str) -> str:
             "stability_score": float(d.get('stability_score', d.get('stability', 0.8))),
             "fitness_delta": float(d.get('fitness_delta', 0)),
             "transferability": float(d.get('transferability', 0.5)),
-                "validation_count": int(d.get('validation_count', 0))
-            }
+            "validation_count": int(d.get('validation_count', 0))
         }
-        
-        entry["content_hash"] = hashlib.sha256(
-            json.dumps({"t": entry["title"], "a": entry["axiom"]}, sort_keys=True).encode()
-        ).hexdigest()[:16]
-        
-        save_pattern(entry)
-        
-        return json.dumps({
-            "success": True,
-            "entry_id": entry["id"],
-            "hash": entry["content_hash"]
-        }, indent=2)
-        
-    except json.JSONDecodeError:
-        return json.dumps({"error": "Invalid JSON"})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    }
+    
+    entry["content_hash"] = hashlib.sha256(
+        json.dumps({"t": entry["title"], "a": entry["axiom"]}, sort_keys=True).encode()
+    ).hexdigest()[:16]
+    
+    save_pattern(entry)
+    
+    return json.dumps({
+        "success": True,
+        "entry_id": entry["id"],
+        "hash": entry["content_hash"]
+    }, indent=2)
 
 
 def get_stats() -> str:
