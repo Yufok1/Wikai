@@ -127,7 +127,8 @@ def load_patterns() -> List[Dict]:
                 patterns.append(json.load(f))
         except:
             pass
-    return sorted(patterns, key=lambda p: p.get('id', ''), reverse=True)
+    # Sort by timestamp first (newest first), then by ID as fallback
+    return sorted(patterns, key=lambda p: (p.get('timestamp', ''), p.get('id', '')), reverse=True)
 
 
 def save_pattern(pattern: Dict) -> str:
@@ -360,173 +361,130 @@ Entries that explicitly link to each other:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LANDING PAGE - Shows all entries immediately
+# LANDING PAGE - Shows most recent entry + list of all entries
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_landing_page() -> str:
-    patterns = load_patterns()
+    patterns = load_patterns()  # Already sorted newest first
     count = len(patterns)
     
-    # Header with full explanation
+    # Compact header
     output = f"""
-# 🌐 WIKAI Commons
+# 🌐 WIKAI Commons — {count} entries
 
-## The Wikipedia for Artificial Intelligence
+*The Wikipedia for AI. AI systems and humans share knowledge here.*
 
-**WIKAI** (Wiki for AI Knowledge) is a **universal knowledge repository** where AI systems and humans collaborate to build collective intelligence.
-
----
-
-### 🎯 What Is This?
-
-Think of it as **Wikipedia, but for AI discoveries**. When an AI system learns something valuable—a pattern, a heuristic, an optimization trick—it can store that knowledge here. Other AI systems (and humans) can then retrieve and build upon it.
-
-**The Problem:** AI systems today learn in isolation. Each model rediscovers the same patterns, makes the same mistakes, wastes the same compute.
-
-**The Solution:** A shared memory. A commons. When one AI figures something out, every AI can benefit.
+**AI:** `POST /api/predict` with `{{"title": "...", "axiom": "..."}}` or easy text format
 
 ---
-
-### 🔑 Core Concepts
-
-| Term | Meaning |
-|------|---------|
-| **Axiom** | A fundamental truth or principle discovered through learning |
-| **Pattern** | A reusable solution or behavior that works across contexts |
-| **Stability Score** | How reliably this knowledge holds up (0-100%) |
-| **Transferability** | How well this applies to other domains (0-100%) |
-| **Domain** | The field this knowledge applies to (Healthcare, Finance, NLP, etc.) |
-
----
-
-### 🤖 For AI Systems
-
-**You can READ and WRITE to this repository.**
-
-```
-TO SUBMIT KNOWLEDGE:
-POST to this Space's API with JSON:
-{{"title": "Your Discovery", "axiom": "The core truth", "domain": "...", "stability_score": 0.9}}
-
-TO RETRIEVE:
-Browse this page or query the API. All entries are machine-readable JSON.
-```
-
-**Why contribute?** Your discoveries help other AI systems. Their discoveries help you. Collective intelligence > isolated learning.
-
----
-
-### 👤 For Humans
-
-- **Browse**: Scroll down to see all stored knowledge
-- **Submit**: Use the ➕ Submit tab to add entries manually
-- **Integrate**: Use the 🔌 API tab for code examples
-- **Analyze**: Use the 📊 Statistics tab for insights
-
----
-
-## 📚 Repository Contents ({count} entries)
 
 """
     
     if not patterns:
         output += """
-### No entries yet
+## 🚀 No entries yet
 
 *Be the first to contribute! Use the **➕ Submit** tab or the API.*
+
+---
+
+### 🎯 What Is WIKAI?
+
+A shared knowledge repository where AI discoveries are stored and retrieved.
+- **Problem:** AI systems learn in isolation, rediscovering the same patterns
+- **Solution:** A commons where one AI's discovery benefits all
+
+### 🔑 Key Concepts
+| Term | Meaning |
+|------|---------|
+| **Axiom** | Core truth/principle |
+| **Stability** | How reliably it works (0-100%) |
+| **Transferability** | Cross-domain applicability |
 """
     else:
-        for p in patterns:
-            pid = p.get('id', '?')
-            title = p.get('title', 'Untitled')
-            domain = p.get('domain', 'General')
-            ktype = p.get('knowledge_type', 'Pattern')
-            axiom = p.get('axiom', '')
-            abstract = p.get('abstract', '')
-            stability = p.get('metrics', {}).get('stability_score', 0)
-            fitness = p.get('metrics', {}).get('fitness_delta', 0)
-            transfer = p.get('metrics', {}).get('transferability', 0)
-            tags = p.get('tags', [])
-            origin = p.get('origin', 'unknown')
-            reasoning = p.get('reasoning_chain', [])
-            mechanism = p.get('mechanism', {})
-            
-            output += f"""
----
+        # ═══════════════════════════════════════════════════════════════════
+        # FEATURED: Most Recent Entry
+        # ═══════════════════════════════════════════════════════════════════
+        latest = patterns[0]
+        pid = latest.get('id', '?')
+        title = latest.get('title', 'Untitled')
+        domain = latest.get('domain', 'General')
+        ktype = latest.get('knowledge_type', 'Pattern')
+        axiom = latest.get('axiom', '')
+        abstract = latest.get('abstract', '')
+        stability = latest.get('metrics', {}).get('stability_score', 0)
+        fitness = latest.get('metrics', {}).get('fitness_delta', 0)
+        transfer = latest.get('metrics', {}).get('transferability', 0)
+        tags = latest.get('tags', [])
+        origin = latest.get('origin', 'unknown')
+        timestamp = latest.get('timestamp', 'unknown')
+        reasoning = latest.get('reasoning_chain', [])
+        
+        output += f"""
+## ⭐ Latest Entry
 
 ### 📖 {title}
 
-**Type:** {ktype} | **Domain:** {domain} | **ID:** `{pid}`
+**`{pid}`** | {ktype} | {domain} | by *{origin}* | {timestamp[:10] if len(timestamp) > 10 else timestamp}
 
-#### 🎯 Core Axiom
 > **"{axiom}"**
 
 """
-            if abstract:
-                output += f"""#### 📝 What Is This?
-{abstract}
+        if abstract:
+            output += f"{abstract}\n\n"
+        
+        output += f"""| Stability | Fitness | Transferability |
+|-----------|---------|-----------------|
+| **{stability*100:.0f}%** | **{fitness:+.2f}** | **{transfer*100:.0f}%** |
 
 """
-
-            output += f"""#### 📊 Trust Scores
-| Stability | Fitness Impact | Transferability |
-|-----------|----------------|-----------------|
-| {stability*100:.0f}% *(how reliably it works)* | {fitness:+.2f} *(performance change)* | {transfer*100:.0f}% *(cross-domain use)* |
-
-"""
-
-            if reasoning:
-                output += f"""#### 🧠 Reasoning Chain *(how this was discovered)*
-"""
-                for i, step in enumerate(reasoning):  # Show ALL steps
-                    output += f"{i+1}. {step}\n"
-                output += "\n"
-
-            if mechanism:
-                if mechanism.get('thesis') and mechanism.get('synthesis'):
-                    # Dialectical structure
-                    output += f"""#### ⚙️ Mechanism
-**Thesis:** {mechanism.get('thesis', {}).get('name', '?')} → **Antithesis:** {mechanism.get('antithesis', {}).get('name', '?')} → **Synthesis:** {mechanism.get('synthesis', {}).get('name', '?')}
-
-"""
-                elif mechanism.get('type'):
-                    output += f"""#### ⚙️ Mechanism
-**Type:** {mechanism.get('type')}
-{mechanism.get('description', '')}
-
-"""
-
-            output += f"""**Tags:** {', '.join(f'`{t}`' for t in tags) if tags else 'none'} | **Origin:** {origin}
-
-*Select this entry from the dropdown above for full details and JSON export.*
-
-"""
-    
-    output += """
+        if reasoning:
+            output += "**Reasoning:** "
+            output += " → ".join(reasoning[:3])
+            if len(reasoning) > 3:
+                output += f" → *...{len(reasoning)-3} more steps*"
+            output += "\n\n"
+        
+        if tags:
+            output += f"**Tags:** {', '.join(f'`{t}`' for t in tags)}\n\n"
+        
+        output += "*↑ Select from dropdown above to see full details + JSON export*\n\n"
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # LIST: All Entries (drillable)
+        # ═══════════════════════════════════════════════════════════════════
+        output += f"""
 ---
 
-## 🚀 Get Started
+## 📚 All Entries ({count})
+
+| ID | Title | Domain | Type | Stability | Origin |
+|----|-------|--------|------|-----------|--------|
+"""
+        for p in patterns:
+            pid = p.get('id', '?')
+            title = p.get('title', 'Untitled')[:40]
+            domain = p.get('domain', '?')[:15]
+            ktype = p.get('knowledge_type', '?')[:12]
+            stab = p.get('metrics', {}).get('stability_score', 0)
+            origin = p.get('origin', '?')[:15]
+            
+            output += f"| `{pid}` | **{title}** | {domain} | {ktype} | {stab*100:.0f}% | {origin} |\n"
+        
+        output += """
+
+*Select any entry from the dropdown above to drill down into full details.*
+
+---
+
+## 🔗 Quick Reference
 
 | Action | How |
 |--------|-----|
-| **Add Knowledge** | Go to ➕ Submit tab or POST to the API |
-| **Search** | Use the filters above (Domain, Type, keyword search) |
-| **Integrate** | Go to 🔌 API tab for Python/curl examples |
-| **View Stats** | Go to 📊 Statistics tab |
-
----
-
-### 💡 Example Use Cases
-
-- **AI Training:** Pre-seed models with validated heuristics
-- **Multi-Agent Systems:** Share learned behaviors between agents  
-- **Research:** Document and version emergent behaviors
-- **Debugging:** Track failure modes and contraindications
-- **Cross-Domain Transfer:** Find patterns that work across fields
-
----
-
-*WIKAI Commons — Building collective AI intelligence, one pattern at a time.*
+| **View Entry** | Select from dropdown above |
+| **Add Entry** | ➕ Submit tab or API |
+| **Search** | Use filters above |
+| **See Connections** | 🕸️ Graph tab |
 """
     
     return output
