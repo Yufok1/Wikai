@@ -959,3 +959,10 @@ if __name__ == '__main__':
     
     app = create_app(patterns_dir=args.patterns)
     run_server(app, host=args.host, port=args.port, debug=args.debug)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# APP INSTANCE FOR DEPLOYMENT (gunicorn/render)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Create default app for production deployment
+app = create_app()
