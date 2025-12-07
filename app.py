@@ -87,11 +87,9 @@ def format_pattern_card(p: Dict) -> str:
 def browse_patterns(search_query: str = "", tag_filter: str = "All"):
     """Browse patterns with search and filter."""
     patterns = load_patterns()
-    
     # Filter by tag
     if tag_filter and tag_filter != "All":
         patterns = [p for p in patterns if tag_filter in p.get('tags', [])]
-    
     # Search
     if search_query:
         query = search_query.lower()
@@ -99,15 +97,15 @@ def browse_patterns(search_query: str = "", tag_filter: str = "All"):
                    query in p.get('title', '').lower() or
                    query in p.get('axiom', '').lower() or
                    query in p.get('abstract', '').lower()]
-    
     if not patterns:
-        return "No patterns found. Be the first to contribute!"
-    
+        return [], "No patterns found. Be the first to contribute!"
+    # Return list of (id, title) for dropdown and formatted cards
+    pattern_options = [(p.get('id'), p.get('title')) for p in patterns[:20]]
     result = f"## 📚 WIKAI Commons ({len(patterns)} patterns)\n\n"
-    for p in patterns[:20]:  # Limit display
-        result += format_pattern_card(p)
-    
-    return result
+    for p in patterns[:20]:
+        pid = p.get('id')
+        result += f"<div style='cursor:pointer' onclick=\"window.patternSelect('{pid}')\">" + format_pattern_card(p) + "</div>"
+    return pattern_options, result
 
 def view_pattern(pattern_id: str):
     """View full pattern details."""
@@ -245,7 +243,7 @@ def api_submit(data: str):
 # GRADIO UI
 # ═══════════════════════════════════════════════════════════════════════════════
 
-with gr.Blocks(title="WIKAI Commons", theme=gr.themes.Base(primary_hue="blue")) as demo:
+with gr.Blocks(title="WIKAI Commons") as demo:
     gr.Markdown("""
     # 📚 WIKAI Commons
     ### The Wikipedia for Artificial Intelligence
@@ -266,21 +264,40 @@ with gr.Blocks(title="WIKAI Commons", theme=gr.themes.Base(primary_hue="blue")) 
                     label="Filter by Tag"
                 )
             browse_btn = gr.Button("Search", variant="primary")
-            browse_output = gr.Markdown(browse_patterns())
+            pattern_dropdown = gr.Dropdown(label="Select Pattern", choices=[], value=None)
+            browse_output = gr.Markdown()
+            
+            def update_browse(search, tag):
+                options, result = browse_patterns(search, tag)
+                pattern_dropdown.choices = [f"{pid}: {title}" for pid, title in options]
+                return result
             
             browse_btn.click(
-                browse_patterns,
+                update_browse,
                 inputs=[search_box, tag_dropdown],
                 outputs=browse_output
             )
+            
+            def on_pattern_select(selected):
+                if selected:
+                    pid = selected.split(":")[0]
+                    return view_pattern(pid)
+                return "Select a pattern to view details."
+            pattern_dropdown.change(on_pattern_select, inputs=pattern_dropdown, outputs=browse_output)
         
         # View Tab
         with gr.TabItem("📖 View Pattern"):
-            pattern_id_input = gr.Textbox(label="Pattern ID", placeholder="WIKAI_0001")
-            view_btn = gr.Button("View", variant="primary")
+            patterns = load_patterns()
+            pattern_options = [f"{p.get('id')}: {p.get('title')}" for p in patterns]
+            pattern_id_dropdown = gr.Dropdown(label="Select Pattern", choices=pattern_options, value=pattern_options[0] if pattern_options else None)
             view_output = gr.Markdown()
             
-            view_btn.click(view_pattern, inputs=pattern_id_input, outputs=view_output)
+            def on_view_select(selected):
+                if selected:
+                    pid = selected.split(":")[0]
+                    return view_pattern(pid)
+                return "Select a pattern to view details."
+            pattern_id_dropdown.change(on_view_select, inputs=pattern_id_dropdown, outputs=view_output)
         
         # Submit Tab
         with gr.TabItem("➕ Submit Pattern"):
