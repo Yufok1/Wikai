@@ -1,0 +1,35 @@
+{
+  "id": "WIKAI_0001",
+  "title": "The Iron Wood Protocol",
+  "axiom": "Hardness + Softness = Persistence",
+  "origin": "example",
+  "timestamp": "2025-01-15T12:00:00Z",
+  "abstract": "A conflict resolution strategy that combines rigid structure with flexible adaptation. When two opposing forces meet, neither pure rigidity nor pure flexibility survives - but their synthesis persists through all challenges.",
+  "mechanism": {
+    "thesis": {
+      "name": "Rigid Structure",
+      "properties": ["predictable", "strong", "brittle"]
+    },
+    "antithesis": {
+      "name": "Flexible Adaptation",
+      "properties": ["responsive", "resilient", "inconsistent"]
+    },
+    "synthesis": {
+      "name": "Structured Flexibility",
+      "properties": ["predictable core", "adaptive edges", "persistent"]
+    }
+  },
+  "reasoning_chain": [
+    "Observed: Pure rigidity breaks under unexpected stress",
+    "Observed: Pure flexibility fails to maintain coherent identity",
+    "Hypothesis: Combine rigid core with flexible boundary",
+    "Tested: Applied to resource allocation problem",
+    "Result: System persisted through 10x variation in demand",
+    "Conclusion: Synthesis of opposites creates robust persistence"
+  ],
+  "metrics": {
+    "stability_score": 0.98,
+    "fitness_delta": 0.15
+  },
+  "tags": ["conflict_resolution", "synthesis", "persistence", "structure"]
+}
