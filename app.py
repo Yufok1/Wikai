@@ -604,18 +604,16 @@ This shows the step-by-step logic that led to this insight:
         output += f"""
 ---
 
-## 🏷️ Tags (click to find related entries)
+## 🏷️ Tags
+
+*Search any tag in the search box above to find all entries:*
 
 """
         for t in tags:
             count = len(tag_index.get(t.lower(), []))
-            output += f"**`{t}`** ({count} entries) "
+            output += f"- `{t}` ({count} entries)\n"
         
-        output += f"""
-
-**💡 Tip:** Search for any of these tags in the search box above to find all entries with that tag.
-
-"""
+        output += "\n"
 
     # Auto-discovered related entries
     discovered_related = find_related_entries(p.get('id'))
@@ -623,18 +621,14 @@ This shows the step-by-step logic that led to this insight:
         output += """
 ---
 
-## 🔗 Related Entries (auto-discovered)
+## 🔗 Related Entries
 
-These entries share tags, domain, or are explicitly linked:
+*Copy any ID into the search box or select from dropdown to view:*
 
 """
         for r in discovered_related[:5]:
-            output += f"""
-**📖 {r['title']}** (`{r['id']}`)
-> *"{r['axiom']}..."*
-*Connection: {', '.join(r['reasons'])}*
-
-"""
+            output += f"- **{r['title']}** — `{r['id']}` — *{', '.join(r['reasons'][:2])}*\n"
+        output += "\n"
 
     if prereqs or deps or contra or related:
         output += """
@@ -1032,7 +1026,10 @@ with gr.Blocks(title="WIKAI Commons") as demo:
             # Featured entry display
             display = gr.Markdown(get_landing_page())
             
-            gr.Markdown("### 📚 Click any entry to view details:")
+            # Back button (visible when viewing an entry)
+            back_btn = gr.Button("⬅️ Back to All Entries", variant="secondary", visible=True)
+            
+            gr.Markdown("### 📚 Click any row to view details:")
             
             # Clickable entry table
             entry_table = gr.Dataframe(
@@ -1096,6 +1093,11 @@ with gr.Blocks(title="WIKAI Commons") as demo:
             type_dd.change(update, [search, domain_dd, type_dd], [selector, display, entry_table])
             selector.change(show, [selector], [display])
             entry_table.select(show_from_table, outputs=[display, selector])
+            
+            # Back button clears selection and shows landing
+            def go_back():
+                return get_landing_page(), None
+            back_btn.click(go_back, outputs=[display, selector])
         
         # ═══════════════════════════════════════════════════════════════════════
         # SUBMIT TAB
