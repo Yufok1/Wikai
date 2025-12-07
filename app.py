@@ -30,52 +30,87 @@ from typing import Dict, List
 import hashlib
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PERSISTENT STORAGE via Hugging Face Hub
+# PERSISTENT STORAGE via Hugging Face Hub (Dataset repo, NOT Space repo)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
-REPO_ID = "tostido/Wikai"  # Your Space repo
+SPACE_REPO_ID = "tostido/Wikai"  # The Space (don't upload here - triggers rebuild!)
+DATA_REPO_ID = "tostido/Wikai"  # Dataset repo for patterns (same name, different type)
 PATTERNS_DIR = Path("patterns")
 PATTERNS_DIR.mkdir(exist_ok=True)
 
 # Try to use HF Hub for persistence
 try:
-    from huggingface_hub import HfApi, hf_hub_download, upload_file
+    from huggingface_hub import HfApi, hf_hub_download, upload_file, create_repo
     HF_AVAILABLE = True
 except ImportError:
     HF_AVAILABLE = False
 
-def sync_from_hub():
-    """Download patterns from HF Hub on startup."""
-    if not HF_AVAILABLE or not HF_TOKEN:
-        return
-    try:
-        api = HfApi(token=HF_TOKEN)
-        files = api.list_repo_files(repo_id=REPO_ID, repo_type="space")
-        pattern_files = [f for f in files if f.startswith("patterns/") and f.endswith(".json")]
-        for pf in pattern_files:
-            try:
-                local_path = hf_hub_download(repo_id=REPO_ID, filename=pf, repo_type="space", token=HF_TOKEN)
-                dest = PATTERNS_DIR / Path(pf).name
-                if not dest.exists():
-                    import shutil
-                    shutil.copy(local_path, dest)
-            except:
-                pass
-    except Exception as e:
-        print(f"Hub sync failed: {e}")
-
-def save_to_hub(filename: str, content: str):
-    """Save a pattern file to HF Hub for persistence."""
+def ensure_data_repo():
+    """Create the data repo if it doesn't exist."""
     if not HF_AVAILABLE or not HF_TOKEN:
         return False
     try:
         api = HfApi(token=HF_TOKEN)
+        try:
+            api.repo_info(repo_id=DATA_REPO_ID, repo_type="dataset")
+        except:
+            # Create it
+            api.create_repo(repo_id=DATA_REPO_ID, repo_type="dataset", private=False)
+            print(f"Created data repo: {DATA_REPO_ID}")
+        return True
+    except Exception as e:
+        print(f"Data repo setup failed: {e}")
+        return False
+
+def sync_from_hub():
+    """Download patterns from HF Hub Dataset repo on startup."""
+    if not HF_AVAILABLE or not HF_TOKEN:
+        return
+    try:
+        api = HfApi(token=HF_TOKEN)
+        # Try dataset repo first
+        try:
+            files = api.list_repo_files(repo_id=DATA_REPO_ID, repo_type="dataset")
+            pattern_files = [f for f in files if f.endswith(".json")]
+            for pf in pattern_files:
+                try:
+                    local_path = hf_hub_download(repo_id=DATA_REPO_ID, filename=pf, repo_type="dataset", token=HF_TOKEN)
+                    dest = PATTERNS_DIR / Path(pf).name
+                    if not dest.exists():
+                        import shutil
+                        shutil.copy(local_path, dest)
+                except:
+                    pass
+            print(f"Synced {len(pattern_files)} patterns from {DATA_REPO_ID}")
+        except:
+            # Fallback: try space repo for legacy patterns
+            files = api.list_repo_files(repo_id=SPACE_REPO_ID, repo_type="space")
+            pattern_files = [f for f in files if f.startswith("patterns/") and f.endswith(".json")]
+            for pf in pattern_files:
+                try:
+                    local_path = hf_hub_download(repo_id=SPACE_REPO_ID, filename=pf, repo_type="space", token=HF_TOKEN)
+                    dest = PATTERNS_DIR / Path(pf).name
+                    if not dest.exists():
+                        import shutil
+                        shutil.copy(local_path, dest)
+                except:
+                    pass
+    except Exception as e:
+        print(f"Hub sync failed: {e}")
+
+def save_to_hub(filename: str, content: str):
+    """Save a pattern file to HF Hub Dataset repo (NOT Space - avoids rebuild!)."""
+    if not HF_AVAILABLE or not HF_TOKEN:
+        return False
+    try:
+        ensure_data_repo()
+        api = HfApi(token=HF_TOKEN)
         api.upload_file(
             path_or_fileobj=content.encode(),
-            path_in_repo=f"patterns/{filename}",
-            repo_id=REPO_ID,
-            repo_type="space",
+            path_in_repo=filename,  # No subdirectory needed in dataset repo
+            repo_id=DATA_REPO_ID,
+            repo_type="dataset",  # Dataset, not space!
             commit_message=f"Add pattern: {filename}"
         )
         return True
