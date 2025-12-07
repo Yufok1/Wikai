@@ -88,6 +88,205 @@ def get_next_id() -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# INTERLINK SYSTEM - Tags, Cross-References, Knowledge Graph
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def build_tag_index() -> Dict[str, List[Dict]]:
+    """Build an index of all tags -> entries that have them."""
+    patterns = load_patterns()
+    index = {}
+    for p in patterns:
+        for tag in p.get('tags', []):
+            tag_lower = tag.lower()
+            if tag_lower not in index:
+                index[tag_lower] = []
+            index[tag_lower].append({
+                'id': p.get('id'),
+                'title': p.get('title'),
+                'axiom': p.get('axiom', '')[:100]
+            })
+    return index
+
+
+def build_domain_index() -> Dict[str, List[Dict]]:
+    """Build an index of domains -> entries."""
+    patterns = load_patterns()
+    index = {}
+    for p in patterns:
+        domain = p.get('domain', 'General')
+        if domain not in index:
+            index[domain] = []
+        index[domain].append({
+            'id': p.get('id'),
+            'title': p.get('title'),
+            'axiom': p.get('axiom', '')[:100]
+        })
+    return index
+
+
+def find_related_entries(entry_id: str) -> List[Dict]:
+    """Find entries related to a given entry by shared tags, domain, or explicit links."""
+    patterns = load_patterns()
+    target = next((p for p in patterns if p.get('id') == entry_id), None)
+    if not target:
+        return []
+    
+    related = []
+    target_tags = set(t.lower() for t in target.get('tags', []))
+    target_domain = target.get('domain', '')
+    explicit_related = set(target.get('related_entries', []))
+    
+    for p in patterns:
+        if p.get('id') == entry_id:
+            continue
+        
+        score = 0
+        reasons = []
+        
+        # Explicit relationship
+        if p.get('id') in explicit_related or entry_id in p.get('related_entries', []):
+            score += 10
+            reasons.append("explicitly linked")
+        
+        # Shared tags
+        p_tags = set(t.lower() for t in p.get('tags', []))
+        shared_tags = target_tags & p_tags
+        if shared_tags:
+            score += len(shared_tags) * 2
+            reasons.append(f"shares tags: {', '.join(shared_tags)}")
+        
+        # Same domain
+        if p.get('domain') == target_domain:
+            score += 1
+            reasons.append(f"same domain: {target_domain}")
+        
+        # Same knowledge type
+        if p.get('knowledge_type') == target.get('knowledge_type'):
+            score += 1
+            reasons.append(f"same type")
+        
+        if score > 0:
+            related.append({
+                'id': p.get('id'),
+                'title': p.get('title'),
+                'axiom': p.get('axiom', '')[:80],
+                'score': score,
+                'reasons': reasons
+            })
+    
+    return sorted(related, key=lambda x: -x['score'])[:10]
+
+
+def get_tag_page(tag: str) -> str:
+    """Get a page showing all entries with a specific tag."""
+    tag_index = build_tag_index()
+    tag_lower = tag.lower()
+    
+    if tag_lower not in tag_index:
+        return f"No entries found with tag `{tag}`.\n\n" + get_landing_page()
+    
+    entries = tag_index[tag_lower]
+    
+    output = f"""
+# 🏷️ Tag: `{tag}`
+
+**{len(entries)} entries** with this tag
+
+---
+
+"""
+    for e in entries:
+        output += f"""
+### 📖 [{e['title']}]
+**ID:** `{e['id']}`
+> *"{e['axiom']}"*
+
+*Select from dropdown to view full details*
+
+---
+"""
+    
+    output += """
+*← Use the search/filter above or select an entry from the dropdown*
+"""
+    return output
+
+
+def get_knowledge_graph() -> str:
+    """Generate a text-based knowledge graph showing relationships."""
+    patterns = load_patterns()
+    tag_index = build_tag_index()
+    
+    output = """
+# 🕸️ Knowledge Graph
+
+This shows how entries are connected through shared tags and relationships.
+
+---
+
+## 📊 Tag Clusters
+
+"""
+    
+    # Show top tags and their entries
+    sorted_tags = sorted(tag_index.items(), key=lambda x: -len(x[1]))[:15]
+    
+    for tag, entries in sorted_tags:
+        output += f"""
+### `{tag}` ({len(entries)} entries)
+"""
+        for e in entries[:5]:
+            output += f"- **{e['title']}** (`{e['id']}`)\n"
+        if len(entries) > 5:
+            output += f"- *...and {len(entries) - 5} more*\n"
+        output += "\n"
+    
+    output += """
+---
+
+## 🔗 Cross-References
+
+Entries that explicitly link to each other:
+
+"""
+    
+    # Show explicit relationships
+    has_links = False
+    for p in patterns:
+        related = p.get('related_entries', [])
+        prereqs = p.get('prerequisites', [])
+        deps = p.get('dependencies', [])
+        
+        all_links = related + prereqs + deps
+        if all_links:
+            has_links = True
+            output += f"**{p.get('title')}** (`{p.get('id')}`):\n"
+            if related:
+                output += f"  - Related: {', '.join(related)}\n"
+            if prereqs:
+                output += f"  - Prerequisites: {', '.join(prereqs)}\n"
+            if deps:
+                output += f"  - Dependencies: {', '.join(deps)}\n"
+            output += "\n"
+    
+    if not has_links:
+        output += "*No explicit cross-references yet. Add them when submitting entries!*\n"
+    
+    output += """
+---
+
+## 🌐 Domain Distribution
+
+"""
+    
+    domain_index = build_domain_index()
+    for domain, entries in sorted(domain_index.items(), key=lambda x: -len(x[1])):
+        output += f"- **{domain}**: {len(entries)} entries\n"
+    
+    return output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # LANDING PAGE - Shows all entries immediately
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -206,10 +405,8 @@ Browse this page or query the API. All entries are machine-readable JSON.
             if reasoning:
                 output += f"""#### 🧠 Reasoning Chain *(how this was discovered)*
 """
-                for i, step in enumerate(reasoning[:4]):  # Show first 4 steps
+                for i, step in enumerate(reasoning):  # Show ALL steps
                     output += f"{i+1}. {step}\n"
-                if len(reasoning) > 4:
-                    output += f"*...and {len(reasoning) - 4} more steps*\n"
                 output += "\n"
 
             if mechanism:
@@ -398,14 +595,40 @@ This shows the step-by-step logic that led to this insight:
 """
 
     if tags:
+        # Build tag index for showing counts
+        tag_index = build_tag_index()
         output += f"""
 ---
 
-## 🏷️ Tags
+## 🏷️ Tags (click to find related entries)
 
-{', '.join(f'`{t}`' for t in tags)}
+"""
+        for t in tags:
+            count = len(tag_index.get(t.lower(), []))
+            output += f"**`{t}`** ({count} entries) "
+        
+        output += f"""
 
-**What are tags?** Keywords for searching. If you're looking for patterns about "{tags[0] if tags else 'something'}", this entry will show up.
+**💡 Tip:** Search for any of these tags in the search box above to find all entries with that tag.
+
+"""
+
+    # Auto-discovered related entries
+    discovered_related = find_related_entries(p.get('id'))
+    if discovered_related:
+        output += """
+---
+
+## 🔗 Related Entries (auto-discovered)
+
+These entries share tags, domain, or are explicitly linked:
+
+"""
+        for r in discovered_related[:5]:
+            output += f"""
+**📖 {r['title']}** (`{r['id']}`)
+> *"{r['axiom']}..."*
+*Connection: {', '.join(r['reasons'])}*
 
 """
 
@@ -413,20 +636,20 @@ This shows the step-by-step logic that led to this insight:
         output += """
 ---
 
-## 🔀 Relationships
+## 🔀 Explicit Relationships
 
 """
         if prereqs:
-            output += f"**Prerequisites** (understand these first): {', '.join(prereqs)}\n\n"
+            output += f"**📚 Prerequisites** (understand these first): {', '.join(f'`{x}`' for x in prereqs)}\n\n"
         if deps:
-            output += f"**Dependencies** (requires these to work): {', '.join(deps)}\n\n"
+            output += f"**⚙️ Dependencies** (requires these to work): {', '.join(f'`{x}`' for x in deps)}\n\n"
         if contra:
             output += f"**⚠️ Contraindications** (when NOT to use this):\n"
             for c in contra:
                 output += f"- {c}\n"
             output += "\n"
         if related:
-            output += f"**Related entries:** {', '.join(related)}\n\n"
+            output += f"**🔗 Linked entries:** {', '.join(f'`{x}`' for x in related)}\n\n"
 
     if compat and len(compat) > 1:
         output += f"""
@@ -748,6 +971,15 @@ with gr.Blocks(title="WIKAI Commons") as demo:
             stat_btn = gr.Button("🔄 Refresh")
             stat_out = gr.Markdown(get_stats())
             stat_btn.click(get_stats, outputs=stat_out)
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # KNOWLEDGE GRAPH TAB
+        # ═══════════════════════════════════════════════════════════════════════
+        with gr.TabItem("🕸️ Graph"):
+            gr.Markdown("### Knowledge Graph - See how entries connect")
+            graph_btn = gr.Button("🔄 Refresh Graph")
+            graph_out = gr.Markdown(get_knowledge_graph())
+            graph_btn.click(get_knowledge_graph, outputs=graph_out)
         
         # ═══════════════════════════════════════════════════════════════════════
         # API TAB
