@@ -1632,20 +1632,9 @@ async def rest_root():
         }
     }
 
-# Mount Gradio at root, REST API routes are prefixed with /rest
-# For HuggingFace Spaces, we need to use Gradio's built-in launch
-# For local/enterprise deployment, use the FastAPI mount
+# Mount Gradio with FastAPI REST endpoints - works everywhere
+app = gr.mount_gradio_app(rest_app, demo, path="/")
 
-# HF Spaces sets SPACE_ID env var automatically
-if os.environ.get("SPACE_ID") or os.environ.get("SPACE_HOST"):
-    # Running on HuggingFace Spaces - just use Gradio directly
-    demo.launch(
-        share=False,
-        allowed_paths=["patterns"],
-    )
-else:
-    # Local/Enterprise - use FastAPI with REST endpoints
-    app = gr.mount_gradio_app(rest_app, demo, path="/")
-    if __name__ == "__main__":
-        import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=7860)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
